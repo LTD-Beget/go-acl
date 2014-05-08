@@ -1,8 +1,11 @@
 package acl
+
 // #include <sys/types.h>
 // #include <sys/acl.h>
+// #include <stdlib.h>
 // #cgo LDFLAGS: -lacl
 import "C"
+import "unsafe"
 
 type ACL struct {
 	ptr C.acl_t
@@ -25,16 +28,29 @@ func NewFromString(s string) (self *ACL, e error) {
 	if ret != 0 && err != nil {
 		return nil, err
 	}
-	self = &ACL{ ptr: ptr }
+	self = &ACL{ptr: ptr}
+	C.free(unsafe.Pointer(cs))
 	return self, nil
 }
 
-func (self *ACL) SetFile(path string, typ Type) (error) {
+func NewFromFile(path string, typ Type) (self *ACL) {
+	cpath := C.CString(path)
+	ptr := C.acl_get_file(cpath, C.acl_type_t(typ))
+	if ptr == nil {
+		return nil
+	}
+	self = &ACL{ptr: ptr}
+	C.free(unsafe.Pointer(cpath))
+	return self
+}
+
+func (self *ACL) SetFile(path string, typ Type) error {
 	cpath := C.CString(path)
 	ret, err := C.acl_set_file(cpath, C.acl_type_t(typ), self.ptr)
 	if ret != 0 && err != nil {
 		return err
 	}
+	C.free(unsafe.Pointer(cpath))
 	return nil
 }
 
